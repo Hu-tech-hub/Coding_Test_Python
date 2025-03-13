@@ -5,7 +5,7 @@
 ---
 
 ## 📂 디렉토리 설명
-- **03_Algorithm_Efficiency**: 시간 복잡도, 공간 복잡도 등 효율 분석 이론 정리
+- **03_Algorithm_Efficiency**: 알고리즘 효율 분석 이론 정리
 - **04_Python_Basics**: 파이썬 필수 문법 정리
 - **05_Array** ~ **16_Greedy**: 각 알고리즘 및 자료구조 이론 정리와 문제 풀이
 - **Method_CheatSheet**: 자주 사용하는 Python 메서드와 알고리즘 메서드 정리
