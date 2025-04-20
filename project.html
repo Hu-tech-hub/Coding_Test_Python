@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 기반 부산 관광 사진 구도 추천 시스템</title>
+    <style>
+        :root {
+            --primary: #0073b5;
+            --secondary: #f7941d;
+            --dark: #333;
+            --light: #f8f9fa;
+            --accent: #e74c3c;
+            --text: #212121;
+            --text-light: #666;
+            --border: #ddd;
+            --gradient-start: #005990;
+            --gradient-end: #00a0e9;
+        }
+        
+        body {
+            font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            background-color: var(--light);
+            scroll-behavior: smooth;
+        }
+        
+        /* 이미지 설명 툴팁 스타일 */
+        .image-tooltip {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            width: 25px;
+            height: 25px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 2;
+        }
+        
+        .image-tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 30px;
+            right: 0;
+            width: 200px;
+            background-color: var(--dark);
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            z-index: 3;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        section {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            padding: 120px 0 80px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('header-bg.jpg') center/cover no-repeat;
+            opacity: 0.2;
+            z-index: 0;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        h1 {
+            font-size: 3em;
+            margin: 0;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.4em;
+            font-weight: 300;
+            margin-top: 15px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        /* Navigation */
+        .nav-container {
+            background-color: white;
+            position: sticky;
+            top: 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        
+        .nav-menu {
+            display: flex;
+            justify-content: center;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            overflow-x: auto;
+        }
+        
+        .nav-menu li {
+            margin: 0;
+            white-space: nowrap;
+        }
+        
+        .nav-menu a {
+            display: block;
+            color: var(--dark);
+            text-decoration: none;
+            padding: 15px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav-menu a:hover {
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+        }
+        
+        /* Sections */
+        section {
+            background: white;
+            margin: 40px 0;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+        }
+        
+        h2 {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 15px;
+            margin-top: 0;
+            font-size: 2em;
+            position: relative;
+        }
+        
+        h3 {
+            color: var(--secondary);
+            margin-top: 35px;
+            font-weight: 600;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+        }
+        
+        h3:before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--secondary);
+            margin-right: 10px;
+            transform: rotate(45deg);
+        }
+        
+        .highlight {
+            background-color: rgba(247, 148, 29, 0.1);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+        
+        .tech-keyword {
+            background-color: rgba(0, 115, 181, 0.1);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        ul {
+            padding-left: 20px;
+        }
+        
+        li {
+            margin-bottom: 15px;
+        }
+        
+        /* Two Column Layout */
+        .two-column {
+            display: flex;
+            justify-content: space-between;
+            margin: 30px 0;
+            gap: 40px;
+        }
+        
+        .column {
+            flex: 1;
+            position: relative;
+        }
+        
+        /* Image Placeholders */
+        .image-container {
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            height: 250px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .image-container::before {
+            content: '이미지 위치';
+            position: absolute;
+            font-size: 1.2em;
+            color: #999;
+            z-index: 1;
+        }
+        
+        .image-caption {
+            text-align: center;
+            font-style: italic;
+            color: var(--text-light);
+            margin-top: 8px;
+            font-size: 0.9em;
+        }
+        
+        /* Tables */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+        }
+        
+        .comparison-table th {
+            background: linear-gradient(to right, var(--primary), var(--gradient-end));
+            color: white;
+            text-align: left;
+            padding: 15px;
+        }
+        
+        .comparison-table td {
+            border: 1px solid var(--border);
+            padding: 15px;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background-color: rgba(0,0,0,0.02);
+        }
+        
+        /* Roadmap */
+        .roadmap {
+            display: flex;
+            justify-content: space-between;
+            margin: 50px 0;
+            position: relative;
+        }
+        
+        .roadmap::before {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            z-index: 1;
+        }
+        
+        .phase {
+            width: 30%;
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .phase:hover {
+            transform: translateY(-5px);
+        }
+        
+        .phase-title {
+            background: linear-gradient(to right, var(--primary), var(--gradient-end));
+            color: white;
+            text-align: center;
+            padding: 12px;
+            border-radius: 30px;
+            margin-top: -35px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .phase:nth-child(2) .phase-title {
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+        }
+        
+        .phase:nth-child(3) .phase-title {
+            background: linear-gradient(to right, var(--secondary), var(--accent));
+        }
+        
+        /* Conclusion */
+        .conclusion {
+            background: linear-gradient(135deg, var(--primary), var(--gradient-end));
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .conclusion h2 {
+            color: white;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .conclusion::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('conclusion-bg.jpg') center/cover no-repeat;
+            opacity: 0.1;
+            z-index: 0;
+        }
+        
+        .conclusion-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Call to action */
+        .cta-button {
+            display: inline-block;
+            background: var(--secondary);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .cta-button:hover {
+            background: var(--accent);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-light);
+            font-size: 0.9em;
+            background-color: var(--dark);
+            color: white;
+            margin-top: 60px;
+        }
+        
+        /* Back to top button */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-decoration: none;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            z-index: 99;
+        }
+        
+        .back-to-top:hover {
+            background-color: var(--secondary);
+            transform: translateY(-5px);
+        }
+        
+        /* Card style elements */
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+        }
+        
+        .card-title {
+            font-weight: bold;
+            color: var(--primary);
+            margin-top: 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .two-column {
+                flex-direction: column;
+            }
+            
+            .roadmap {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .roadmap::before {
+                display: none;
+            }
+            
+            .phase {
+                width: 90%;
+                margin-bottom: 50px;
+            }
+            
+            .nav-menu {
+                padding: 0 10px;
+            }
+            
+            .nav-menu a {
+                padding: 10px 15px;
+            }
+            
+            section {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 2.2em;
+            }
+            
+            .subtitle {
+                font-size: 1.2em;
+            }
+        }
+        
+        /* Image highlights for tech sections */
+        .tech-highlight {
+            background-color: rgba(0, 115, 181, 0.03);
+            border-left: 3px solid var(--primary);
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content container">
+            <h1>AI 기반 부산 관광 사진 구도 추천 시스템</h1>
+            <div class="subtitle">개발 및 활용 가능성 분석</div>
+        </div>
+    </header>
+    
+    <div class="nav-container">
+        <nav class="container">
+            <ul class="nav-menu">
+                <li><a href="#intro">소개</a></li>
+                <li><a href="#tech-model">기술적 기반</a></li>
+                <li><a href="#data-strategy">데이터 전략</a></li>
+                <li><a href="#differentiation">차별성</a></li>
+                <li><a href="#roadmap">구현 로드맵</a></li>
+                <li><a href="#conclusion">결론</a></li>
+            </ul>
+        </nav>
+    </div>
+    
+    <div class="container">
+        <section id="intro">
+            <h2>소개</h2>
+            <div class="two-column">
+                <div class="column">
+                    <p>부산 관광지에서 AI 기술을 활용해 최적의 사진 구도를 실시간으로 추천하는 시스템은 관광객의 경험을 혁신하고 지역 관광 활성화에 기여할 수 있는 잠재력을 가집니다. 본 보고서는 <span class="tech-keyword">CLIP</span>, <span class="tech-keyword">CNN</span>, <span class="tech-keyword">단안 뎁스 추정 모델</span> 등의 AI 기술을 결합해 부산 특화 관광 사진의 구도 분석 및 추천 시스템을 제안합니다.</p>
+                    
+                    <p>기존 포토스팟 안내 서비스와의 차별성, 데이터 수집 전략, 기술적 구현 방안을 종합적으로 분석하며, 특히 부산 관광지 이미지 데이터를 활용한 모델의 전이학습과 실시간 피드백 기능을 강조해 시스템의 현장 적용 가능성을 입증합니다.</p>
+                </div>
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 1: 부산 대표 관광지 파노라마 이미지 -->
+                    </div>
+                    <p class="image-caption">부산의 대표적인 관광지 전경 (광안대교, 해운대, 감천문화마을 등)</p>
+                </div>
+            </div>
+        </section>
+        
+        <section id="tech-model">
+            <h2>기술적 기반 및 모델 구성</h2>
+            
+            <h3>1. 멀티모달 AI 모델의 통합</h3>
+            <div class="two-column">
+                <div class="column">
+                    <div class="tech-highlight">
+                        <p><span class="tech-keyword">CLIP(Contrastive Language-Image Pre-training)</span> 모델을 핵심으로 하여 텍스트·이미지 간 의미적 유사도를 분석합니다. 사용자가 "광안대교가 배경에 있는 사진"과 같은 자연어 입력을 제공하면, CLIP은 현재 카메라 화면과의 유사도를 계산해 최적의 구도를 제안합니다.</p>
+                    </div>
+                    <div class="image-container">
+                        <!-- 이미지 2: CLIP 모델 작동 다이어그램 -->
+                    </div>
+                    <p class="image-caption">CLIP 모델의 텍스트-이미지 연관성 분석 과정</p>
+                </div>
+                <div class="column">
+                    <div class="tech-highlight">
+                        <p><span class="tech-keyword">CNN(Convolutional Neural Network)</span>은 이미지 내 피사체의 위치, 대칭성, 색채 구성을 분석해 Rule-of-thirds, 황금비율 등 미학적 기준에 부합하는지 평가합니다. 예를 들어 다대포해수욕장의 노을 사진에서 지평선 위치와 파도 패턴을 인식해 균형 잡힌 구도를 추천합니다.</p>
+                    </div>
+                    <div class="image-container">
+                        <!-- 이미지 3: 황금비율/3분할 구도가 적용된 부산 사진 예시 -->
+                    </div>
+                    <p class="image-caption">CNN이 분석하는 사진 구도의 미학적 요소</p>
+                </div>
+            </div>
+            
+            <h3>2. 공간 구성 이해를 위한 뎁스 추정</h3>
+            <div class="two-column">
+                <div class="column">
+                    <p><span class="tech-keyword">MiDaS</span> 또는 <span class="tech-keyword">Depth Anything</span> 모델을 활용해 단일 이미지에서 깊이 정보를 추출합니다. 이를 통해 전경(예: 감천문화마을 벽화)과 배경(예: 마을 전체 풍경)의 거리 관계를 파악하고, 입체감 있는 사진을 위한 촬영 각도를 제안합니다. 부산타워 전망대에서는 광활한 도시 경관의 깊이를 활용해 원근감 강조 방안을 제시할 수 있습니다.</p>
+                </div>
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 4: 원본 이미지와 뎁스맵 비교 이미지 -->
+                    </div>
+                    <p class="image-caption">단안 뎁스 추정을 통한 공간 깊이 분석</p>
+                </div>
+            </div>
+            
+            <h3>3. 실시간 상호작용 구현</h3>
+            <div class="two-column">
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 5: AR 인터페이스 예시 화면 -->
+                    </div>
+                    <p class="image-caption">사용자에게 제공되는 AR 촬영 가이드 인터페이스</p>
+                </div>
+                <div class="column">
+                    <p><span class="tech-keyword">OpenCV PnP(Perspective-n-Point)</span> 알고리즘으로 사용자의 카메라 시점을 추정합니다. 예를 들어 해운대 고흐의 길에서 사용자가 특정 방향으로 이동할 때마다 AR 오버레이를 통해 구도 조정을 안내합니다. 이 기술은 부산역 AI 스튜디오의 지능형 촬영 로봇 '젠시 스튜디오'에서 검증된 바 있습니다.</p>
+                </div>
+            </div>
+        </section>
+        
+        <section id="data-strategy">
+            <h2>데이터 수집 및 학습 전략</h2>
+            
+            <h3>1. 부산 관광지 특화 데이터셋 구축</h3>
+            <div class="two-column">
+                <div class="column">
+                    <ul>
+                        <li><strong>소스</strong>: 인스타그램, 플리커 등 SNS의 해시태그(#감천문화마을, #광안리) 및 위치 태그 데이터 수집</li>
+                        <li><strong>정제</strong>: 좋아요 1,000개 이상의 인기 사진을 선별해 피사체 위치, 조명 각도, 계절 정보를 라벨링합니다. 예를 들어 황령산 전망대 야경 사진은 "해 질녘 30분 후" 시간대와 "광폭 렌즈" 사용 패턴이 빈번히 관찰됩니다.</li>
+                        <li><strong>메타데이터 강화</strong>: 촬영 장비(스마트폰/DSLR), 날씨, 인기 포즈(예: 더베이101 반사판 활용) 정보를 추가해 모델 입력 다양성을 확보합니다.</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 6: 데이터 수집 및 정제 프로세스 도식화 -->
+                    </div>
+                    <p class="image-caption">SNS 데이터 수집부터 학습 데이터셋 구축까지의 프로세스</p>
+                </div>
+            </div>
+            
+            <h3>2. 전이학습을 통한 모델 특화</h3>
+            <div class="two-column">
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 7: 전이학습 과정 시각화 -->
+                    </div>
+                    <p class="image-caption">부산 특화 이미지를 활용한 CLIP 모델 전이학습 과정</p>
+                </div>
+                <div class="column">
+                    <p>사전 학습된 CLIP 모델에 부산 관광 이미지 50,000장을 추가 학습시켜 지역 특화 피처를 인식합니다. 예를 들어 용두산공원 AR 게임 프로젝트에서 축적된 이미지 데이터를 활용해 역사적 맥락 반영 구도를 추천할 수 있습니다.</p>
+                    
+                    <div class="card">
+                        <h4 class="card-title">핵심 데이터 통계</h4>
+                        <ul>
+                            <li>훈련 이미지: 50,000장</li>
+                            <li>검증 이미지: 10,000장</li>
+                            <li>핵심 관광지: 15개 지역</li>
+                            <li>시간대별 데이터: 주간/석양/야간</li>
+                            <li>계절별 데이터: 사계절 균형 분포</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="differentiation">
+            <h2>기존 시스템 대비 차별성</h2>
+            
+            <h3>1. 기능적 혁신</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>구분</th>
+                    <th>기존 서비스(예: 스냅팟)</th>
+                    <th>제안 시스템</th>
+                </tr>
+                <tr>
+                    <td><strong>추천 기준</strong></td>
+                    <td>위치 기반 포토스팟 안내</td>
+                    <td>의미적 유사도·미학적 기준 종합 평가</td>
+                </tr>
+                <tr>
+                    <td><strong>상호작용</strong></td>
+                    <td>정적 정보 제공</td>
+                    <td>실시간 AR 가이드 및 촬영 각도 조정 제안</td>
+                </tr>
+                <tr>
+                    <td><strong>데이터</strong></td>
+                    <td>일반적 관광 정보</td>
+                    <td>부산 특화 이미지·메타데이터 학습</td>
+                </tr>
+            </table>
+            
+            <div class="two-column">
+                <div class="column">
+                    <p><strong>사례 비교</strong>: 트립어드바이저는 사용자 리뷰에 의존하지만, 본 시스템은 AI가 1초 내 구도 점수(예: 82/100)와 개선 방안(예: "오른쪽으로 3걸음 이동")을 제공합니다.</p>
+                </div>
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 8: 기존 앱과 제안 시스템 인터페이스 비교 -->
+                    </div>
+                    <p class="image-caption">기존 포토스팟 앱과 AI 구도 추천 시스템 비교</p>
+                </div>
+            </div>
+            
+            <h3>2. 기술적 장점</h3>
+            <div class="two-column">
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 9: 영화 부산행 촬영지에서의 AR 가이드 예시 -->
+                    </div>
+                    <p class="image-caption">영화 <부산행> 촬영지에서의 맥락 인식 AR 가이드</p>
+                </div>
+                <div class="column">
+                    <ul>
+                        <li><strong>맥락 인식</strong>: 영화 &lt;부산행&gt; 촬영지인 부산역 광장에서 배우 움직임을 모방한 포즈를 AR로 표시</li>
+                        <li><strong>개인화</strong>: 사용자가 이전에 촬영한 사진 스타일을 분석해 선호하는 구도 패턴(예: 저키스키 앵글)을 추천</li>
+                        <li><strong>시간대 최적화</strong>: 시간, 계절, 날씨에 따른 최적의 촬영 조건 안내</li>
+                        <li><strong>몰입형 경험</strong>: 사용자 시점에서 실시간으로 변화하는 AR 인터페이스</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <section id="roadmap">
+            <h2>구현 로드맵 및 산업적 기여</h2>
+            
+            <h3>1. 3단계 개발 계획</h3>
+            <div class="roadmap">
+                <div class="phase">
+                    <div class="phase-title">1단계 (6개월)</div>
+                    <p><strong>CLIP + CNN 프로토타입</strong></p>
+                    <p>오픈소스 모델을 활용해 기본 구도 평가 기능 구현</p>
+                    <div class="image-container">
+                        <!-- 이미지 10: 1단계 프로토타입 UI 목업 -->
+                    </div>
+                </div>
+                
+                <div class="phase">
+                    <div class="phase-title">2단계 (12개월)</div>
+                    <p><strong>부산 데이터 통합</strong></p>
+                    <p>관광공사와 협업해 감천문화마을 등 10개 핵심 구역 데이터 수집</p>
+                    <div class="image-container">
+                        <!-- 이미지 11: 부산 핵심 관광지 데이터 시각화 맵 -->
+                    </div>
+                </div>
+                
+                <div class="phase">
+                    <div class="phase-title">3단계 (18개월)</div>
+                    <p><strong>AR 통합 및 현장 테스트</strong></p>
+                    <p>부산역 AI 스튜디오와 연계해 실제 관광객 대상 피드백 수집</p>
+                    <div class="image-container">
+                        <!-- 이미지 12: 현장 테스트 진행 모습 -->
+                    </div>
+                </div>
+            </div>
+                
+            <h3>2. 관광 산업 파급 효과</h3>
+            <div class="two-column">
+                <div class="column">
+                    <ul>
+                        <li><strong>만족도 향상</strong>: 2025 부산항축제에서 시범 도입 시 관광객의 SNS 게시물 품질 40% 향상 예상</li>
+                        <li><strong>지역 경제 활성화</strong>: "AI 추천 인생샷" 해시태그로 부산 관광지의 온라인 노출량 증가 유도</li>
+                        <li><strong>스마트 관광 격차 해소</strong>: 외국인 관광객을 위한 다국어 구도 설명 기능 추가 가능</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <div class="image-container">
+                        <!-- 이미지 13: 예상 경제 효과 그래프/차트 -->
+                    </div>
+                    <p class="image-caption">시스템 도입 후 예상되는 관광객 만족도 및 경제적 효과</p>
+                </div>
+            </div>
+        </section>
+        
+        <section id="conclusion">
+            <div class="conclusion-content">
+                <h2>결론 및 향후 과제</h2>
+                <div class="two-column">
+                    <div class="column">
+                        <p>AI 기반 부산 관광 사진 구도 추천 시스템은 기술적 혁신성과 지역 특화 전략을 통해 기존 포토스팟 서비스의 한계를 극복할 수 있습니다. 특히 CLIP과 CNN의 결합은 단순한 위치 추천을 넘어 예술적 창의성을 지원하는 도구로 발전할 잠재력을 가집니다.</p>
+                    </div>
+                    <div class="column">
+                        <div class="image-container">
+                            <!-- 이미지 14: 시스템 활용 미래 비전 이미지 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <h3>향후 과제</h3>
+                <ul style="text-align: left; display: inline-block;">
+                    <li>개인정보 보호를 위한 익명화 데이터 처리 강화</li>
+                    <li>다양한 기기(드론, 360도 카메라) 지원 확대</li>
+                    <li>관광지 혼잡도 분석을 통한 촬영 시간대 추천 기능 추가</li>
+                </ul>
+                
+                <p>부산시의 스마트시티 인프라와 연계한다면, AI가 접목된 디지털 관광 생태계의 새로운 표준을 제시할 수 있을 것입니다.</p>
+                
+                <a href="#intro" class="cta-button">프로젝트 참여 문의하기</a>
+            </div>
+        </section>
+        
+        <div class="footer">
+            <div class="container">
+                <p>© 2025 AI 기반 부산 관광 사진 구도 추천 시스템 연구팀</p>
+                <p>문의: ai-photo-busan@example.com | 전화: 051-123-4567</p>
+            </div>
+        </div>
+    </div>
+    
+    <a href="#" class="back-to-top">↑</a>
